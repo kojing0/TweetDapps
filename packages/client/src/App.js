@@ -2,6 +2,7 @@ import './App.css';
 import React, { useEffect, useState } from "react";
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
 
 /* ethers 変数を使えるようにする*/
 import { ethers } from "ethers";
@@ -39,7 +40,7 @@ function App() {
 
 
   useEffect(() => {
-    let tweetPortalContract;
+    let twitterContract;
 
     const onNewEvent = (from, message) => {
       console.log("New Event", from, message);
@@ -48,21 +49,22 @@ function App() {
         {
           address: from,
           message: message
-        }])
+        }],
+      )
     }
 
     if (window.ethereum) {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       const signer = provider.getSigner();
-      tweetPortalContract = new ethers.Contract(
+      twitterContract = new ethers.Contract(
         contractAddress,
         contractABI,
         signer
       );
-      tweetPortalContract.on("NewTweet", onNewEvent);
+      twitterContract.on("NewTweet", onNewEvent);
       return () => {
-        if (tweetPortalContract) {
-          tweetPortalContract.off("NewTweet", onNewEvent)
+        if (twitterContract) {
+          twitterContract.off("NewTweet", onNewEvent)
         }
       }
     }
@@ -91,6 +93,7 @@ function App() {
       console.log(error)
     }
   };
+
   // ウォレット接続を実装
   const connectWallet = async () => {
     try {
@@ -106,6 +109,7 @@ function App() {
       });
       console.log("connected: ", accounts[0])
       setCurrentAccount(accounts[0])
+      getTweet();
     } catch (error) {
       console.log(error);
     }
@@ -140,38 +144,42 @@ function App() {
   useEffect(() => { checkIfWalletIsConnected(); }, []);
   return (
     <div className="App">
+      <div>
         <TextField id="standard-basic" label="Standard" variant="standard" onChange={(event) => {
           setMessageValue(event.target.value);
         }} />
+      </div>
+      <div>
         <Button
           onClick={() => {
           postTweet(messageValue);
           }}
         >
-          Click me
-      </Button>
+          投稿
+        </Button>
+      </div>
+      <div>
       {currentAccount && (
         allTweets.slice(0).reverse().map(
-          (wave, index) => {
+          (tweet, index) => {
             return (
               <div key={index} style={{ backgroundColor: '#F8F8FF', marginTop: "16px", padding: "8px" }}>
-                <div>Address: {wave.address}</div>
-                <div>Message: {wave.message}</div>
+                <div>Address: {tweet.waver}</div>
+                <div>Message: {tweet.message}</div>
               </div>
             )
           }
         )
+        )}
+      </div>
+      <Box mt={4}>
+        {!currentAccount && (
+          <Button variant="contained" onClick={connectWallet}>Connect Wallet</Button>
       )}
-      {!currentAccount && (
-        <button className="waveButton" onClick={connectWallet}>
-          Connect Wallet
-        </button>
-      )}
-      {currentAccount && (
-        <button className="waveButton" onClick={connectWallet}>
-          Wallet Connected
-        </button>
-      )}
+        {currentAccount && (
+          <Button variant="contained" onClick={connectWallet}>Wallet Connected</Button>
+        )}
+      </Box>
     </div>
   );
 }
