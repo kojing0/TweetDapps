@@ -1,8 +1,13 @@
 import './App.css';
 import React, { useEffect, useState } from "react";
 import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import { green } from '@mui/material/colors';
+import Button from '@mui/material/Button';
+import Fab from '@mui/material/Fab';
+import CheckIcon from '@mui/icons-material/Check';
+import SaveIcon from '@mui/icons-material/Save';
 
 /* ethers 変数を使えるようにする*/
 import { ethers } from "ethers";
@@ -10,45 +15,64 @@ import { ethers } from "ethers";
 import abi from "./utils/TweetPortal.json";
 
 function App() {
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = React.useState(false);
+  const timer = React.useRef();
   const [messageValue, setMessageValue] = useState("");
   const [allTweets, setAllTweets] = useState([]);
   const [currentAccount, setCurrentAccount] = useState("");
-  const contractAddress = "0x1Da9C07d947b5180237c65d0609cb0fBd4bb51F6"
+  const contractAddress = "0x6B52ecE57282a5bBf3EF2aE564365821f5B2C119"
   const contractABI = abi.abi;
 
-  const getTweet = async () => {
-    const { ethereum } = window;
-
-    try {
-      if (ethereum) {
-        const provider = new ethers.providers.Web3Provider(ethereum);
-        const signer = provider.getSigner();
-        const tweetContract = new ethers.Contract(
-          contractAddress,
-          contractABI,
-          signer
-        );
-        const tweets = await tweetContract.getTweet();
-        setAllTweets(tweets);
-      } else {
-        console.log("Ethereum object doesn't exist!");
-      }
-    } catch (error) {
-      console.log(error);
-    }
+  const buttonSx = {
+    ...(success && {
+      bgcolor: green[500],
+      '&:hover': {
+        bgcolor: green[700],
+      },
+    }),
   };
+
+  // const getTweet = async () => {
+  //   try {
+  //     const { ethereum } = window;
+  //     if (ethereum) {
+  //       const provider = new ethers.providers.Web3Provider(ethereum);
+  //       const signer = provider.getSigner();
+  //       const tweetContract = new ethers.Contract(
+  //         contractAddress,
+  //         contractABI,
+  //         signer
+  //       );
+  //       const tweets = await tweetContract.getTweet();
+  //       const tweetsCleaned = tweets.map((tweet) => {
+  //         return {
+  //           address: tweet.address,
+  //           timestamp: new Date(tweet.timestamp * 1000),
+  //           message: tweet.message,
+  //         };
+  //       });
+  //       setAllTweets(tweetsCleaned);
+  //     } else {
+  //       console.log("Ethereum object doesn't exist!");
+  //     }
+  //   } catch (error) {
+  //     console.log(error);
+  //   }
+  // };
 
 
   useEffect(() => {
     let twitterContract;
 
-    const onNewEvent = (from, message) => {
-      console.log("New Event", from, message);
+    const onNewEvent = (from, message, timestamp) => {
+      console.log("New Event", from, message, timestamp);
       setAllTweets((prevState) => [
         ...prevState,
         {
           address: from,
-          message: message
+          message: message,
+          timestamp: new Date(timestamp * 1000),
         }],
       )
     }
@@ -109,14 +133,18 @@ function App() {
       });
       console.log("connected: ", accounts[0])
       setCurrentAccount(accounts[0])
-      getTweet();
+      // getTweet();
     } catch (error) {
       console.log(error);
     }
   };
 
-  const postTweet = async () => {    
+  const postTweet = async () => {
     try {
+      if (!loading) {
+        setSuccess(false);
+        setLoading(true);
+      }
       const { ethereum } = window;
       if (ethereum) {
         const provider = new ethers.providers.Web3Provider(ethereum);
@@ -129,11 +157,12 @@ function App() {
         const tweetTxn = await tweetContract.postTweet(messageValue);
         await tweetTxn.wait()
         console.log("Mining...", tweetTxn.hash);
-        const tweets = await tweetContract.getTweet();
-        setAllTweets(tweets);
-        console.log("Get All Tweets", allTweets);
       } else {
         console.log("Ethereum object doesn't exist!");
+      }
+      if (loading) {
+        setSuccess(true);
+        setLoading(false);
       }
     } catch (error) {
       console.log(error);
@@ -144,34 +173,65 @@ function App() {
   useEffect(() => { checkIfWalletIsConnected(); }, []);
   return (
     <div className="App">
-      <div>
-        <TextField id="standard-basic" label="Standard" variant="standard" onChange={(event) => {
-          setMessageValue(event.target.value);
-        }} />
-      </div>
-      <div>
+      <Box mt={4}>
+        {currentAccount && (
+          <TextField sx={{ width: '20%' }} id="standard-basic" label="contents"  onChange={(event) => {
+            setMessageValue(event.target.value);
+          }} />
+        )}
+      </Box>
+      <Box mt={4}>
+        {currentAccount && (
         <Button
+          variant="contained"
           onClick={() => {
-          postTweet(messageValue);
+            postTweet(messageValue);
           }}
         >
-          投稿
+          POST
         </Button>
-      </div>
-      <div>
+        )}
+      </Box>
+      {/* {currentAccount && (
+        <Box sx={{ m: 1, position: 'relative' }}>
+          <Button
+            variant="contained"
+            sx={buttonSx}
+            disabled={loading}
+            onClick={postTweet(messageValue)}
+          >
+            Accept terms
+          </Button>
+          {loading && (
+            <CircularProgress
+              size={24}
+              sx={{
+                color: green[500],
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                marginTop: '-12px',
+                marginLeft: '-12px',
+              }}
+            />
+          )}
+        </Box>
+      )} */}
+      <Box mt={4}>
       {currentAccount && (
         allTweets.slice(0).reverse().map(
           (tweet, index) => {
             return (
               <div key={index} style={{ backgroundColor: '#F8F8FF', marginTop: "16px", padding: "8px" }}>
-                <div>Address: {tweet.waver}</div>
+                <div>Address: {tweet.address}</div>
                 <div>Message: {tweet.message}</div>
+                <div>Timestamp: {tweet.timestamp.toString()}</div>
               </div>
             )
           }
         )
         )}
-      </div>
+      </Box>
       <Box mt={4}>
         {!currentAccount && (
           <Button variant="contained" onClick={connectWallet}>Connect Wallet</Button>
